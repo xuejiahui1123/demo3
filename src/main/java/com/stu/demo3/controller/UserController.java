@@ -21,7 +21,7 @@ public class UserController {
     }
 
     // 2. 用户注册
-    @PostMapping
+    @PostMapping("/register")
     public Result<String> register(@RequestBody UserDTO userDTO) {
         return userService.register(userDTO);
     }
