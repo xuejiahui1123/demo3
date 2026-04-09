@@ -9,6 +9,8 @@ import com.stu.demo3.service.UserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -66,5 +68,17 @@ public class UserServiceImpl implements UserService {
             return Result.error("用户不存在");
         }
         return Result.success("查询成功：" + user.getUsername());
+    }
+
+    @Override
+    public Result<Object> getUserPage(Integer pageNum, Integer pageSize) {
+        // 1. 创建分页对象
+        Page<User> page = new Page<>(pageNum, pageSize);
+
+        // 2. 执行分页查询（null = 查全部）
+        Page<User> resultPage = userMapper.selectPage(page, null);
+
+        // 3. 返回分页数据
+        return Result.success(resultPage);
     }
 }

@@ -31,4 +31,12 @@ public class UserController {
     public Result<String> login(@RequestBody UserDTO userDTO) {
         return userService.login(userDTO);
     }
+
+    //4.分页接口
+    @GetMapping("/page")
+    public Result<Object> getUserPage(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "5") Integer pageSize) {
+        return userService.getUserPage(pageNum, pageSize);
+    }
 }
