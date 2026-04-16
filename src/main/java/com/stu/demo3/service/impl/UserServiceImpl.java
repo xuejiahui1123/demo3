@@ -1,15 +1,23 @@
 package com.stu.demo3.service.impl;
 
+import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.stu.demo3.common.Result;
 import com.stu.demo3.common.ResultCode;
 import com.stu.demo3.dto.UserDTO;
 import com.stu.demo3.entity.User;
+import com.stu.demo3.entity.UserInfo;
+import com.stu.demo3.mapper.UserInfoMapper;
 import com.stu.demo3.mapper.UserMapper;
 import com.stu.demo3.service.UserService;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.stu.demo3.vo.UserDetailVO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+
+import javax.annotation.Resource;
+import java.util.concurrent.TimeUnit;
 
 
 @Service
@@ -17,6 +25,15 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private UserInfoMapper userInfoMapper;
+
+    // 缓存前缀
+    private static final String CACHE_KEY_PREFIX = "user:detail:";
 
     @Override
     public Result<String> register(UserDTO userDTO) {
@@ -56,9 +73,9 @@ public class UserServiceImpl implements UserService {
             return Result.error(ResultCode.PASSWORD_ERROR);
         }
 
-        //return Result.success("登录成功！");
-        String token = "Bearer " + System.currentTimeMillis() + "_" + userDTO.getUsername();
-        return Result.success(token);//我的token:Bearer 1743564729381_testuser
+        return Result.success("登录成功！");
+        //String token = "Bearer " + System.currentTimeMillis() + "_" + userDTO.getUsername();
+        //return Result.success(token);//我的token:Bearer 1743564729381_testuser
     }
 
     @Override
@@ -80,5 +97,68 @@ public class UserServiceImpl implements UserService {
 
         // 3. 返回分页数据
         return Result.success(resultPage);
+    }
+
+    @Override
+    public Result<UserDetailVO> getUserDetail(Long userId) {
+        String key = CACHE_KEY_PREFIX + userId;
+
+        // 1. 先从Redis查缓存
+        String json = redisTemplate.opsForValue().get(key);
+        if (json != null && !json.isBlank()) {
+            try {
+                UserDetailVO vo = JSONUtil.toBean(json, UserDetailVO.class);
+                return Result.success(vo);
+            } catch (Exception e) {
+                redisTemplate.delete(key);
+            }
+        }
+
+        // 2. Redis没有，查数据库（多表联查）
+        UserDetailVO detail = userInfoMapper.getUserDetail(userId);
+        if (detail == null) {
+            return Result.error(ResultCode.USER_NOT_EXIST);
+        }
+
+        // 3. 存入Redis，有效期10分钟
+        redisTemplate.opsForValue().set(
+                key,
+                JSONUtil.toJsonStr(detail),
+                10,
+                TimeUnit.MINUTES
+        );
+
+        return Result.success(detail);
+    }
+
+    @Override
+    public Result<String> updateUserInfo(UserInfo userInfo) {
+        // 1. 更新数据库
+        LambdaQueryWrapper<UserInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserInfo::getUserId, userInfo.getUserId());
+        userInfoMapper.update(userInfo, wrapper);
+
+        // 2. 删除对应缓存，让下次查询重新加载最新数据
+        String key = CACHE_KEY_PREFIX + userInfo.getUserId();
+        redisTemplate.delete(key);
+
+        return Result.success("更新成功！");
+    }
+
+    @Override
+    public Result<String> deleteUser(Long userId) {
+        // 1. 删除主表用户
+        userMapper.deleteById(userId);
+
+        // 2. 删除关联的用户扩展信息
+        LambdaQueryWrapper<UserInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserInfo::getUserId, userId);
+        userInfoMapper.delete(wrapper);
+
+        // 3. 删除对应缓存
+        String key = CACHE_KEY_PREFIX + userId;
+        redisTemplate.delete(key);
+
+        return Result.success("删除成功！");
     }
 }
