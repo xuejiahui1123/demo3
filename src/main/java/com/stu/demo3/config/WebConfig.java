@@ -1,16 +1,20 @@
 package com.stu.demo3.config;
 
-import com.stu.demo3.interceptor.AuthInterceptor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
+    // 只保留跨域配置，必须加！
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AuthInterceptor()) // 挂载自定义拦截器
-                .addPathPatterns("/api/**") // 拦截/api下所有请求（/**表示子路径全部匹配）
-                .excludePathPatterns("/api/users/login"); // 仅放行登录接口，其余由拦截器内部判断
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")        // 所有接口
+                .allowedOrigins("*")      // 允许所有域名
+                .allowedMethods("*")      // 允许所有请求方式（GET,POST,PUT,DELETE）
+                .allowedHeaders("*")      // 允许所有请求头
+                .allowCredentials(false)
+                .maxAge(3600);
     }
 }
