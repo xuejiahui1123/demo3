@@ -1,5 +1,7 @@
 package com.stu.demo3.config;
 
+import com.stu.demo3.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,29 +11,30 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(Customizer.withDefaults()) // 开启CORS
-                .csrf(AbstractHttpConfigurer::disable) // 关闭CSRF
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 无状态
-                )
+                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 放行：注册（POST /api/users）
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
-                        // 放行：登录（POST /api/users/login）
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
-                        // 其他所有接口必须登录认证
                         .anyRequest().authenticated()
                 )
-                .formLogin(AbstractHttpConfigurer::disable) // 关闭默认登录页
-                .httpBasic(AbstractHttpConfigurer::disable); // 关闭httpBasic
+                // JWT 过滤器加在这里
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable);
 
         return http.build();
     }

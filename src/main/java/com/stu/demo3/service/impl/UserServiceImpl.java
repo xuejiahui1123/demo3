@@ -10,6 +10,7 @@ import com.stu.demo3.entity.User;
 import com.stu.demo3.entity.UserInfo;
 import com.stu.demo3.mapper.UserInfoMapper;
 import com.stu.demo3.mapper.UserMapper;
+import com.stu.demo3.security.JwtUtil;
 import com.stu.demo3.service.UserService;
 import com.stu.demo3.vo.UserDetailVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserInfoMapper userInfoMapper;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     // 缓存前缀
     private static final String CACHE_KEY_PREFIX = "user:detail:";
@@ -73,9 +77,8 @@ public class UserServiceImpl implements UserService {
             return Result.error(ResultCode.PASSWORD_ERROR);
         }
 
-        return Result.success("登录成功！");
-        //String token = "Bearer " + System.currentTimeMillis() + "_" + userDTO.getUsername();
-        //return Result.success(token);//我的token:Bearer 1743564729381_testuser
+        String jwt = jwtUtil.generateToken(userDTO.getUsername());
+        return Result.success(jwt);
     }
 
     @Override
